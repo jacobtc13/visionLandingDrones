@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from matplotlib import pyplot as plt
 from picamera.array import PiRGBArray
 from picamera import PiCamera
 import time
@@ -31,25 +32,26 @@ def AkazeFindFeatures(img):
 
 
 def OrbFindFeatures(img):
+    print('Starting Orb Detection')
     time1 = time.time()
     # setup ORB alg
-    orb = cv2.ORB_create(nfeatures=100000, scoreType=cv2.ORB_FAST_SCORE)
-
+    orb = cv2.ORB_create(nfeatures=1000, scoreType=cv2.ORB_FAST_SCORE)
     kp = orb.detect(img, None)
     kp, des = orb.compute(img, kp)
-    img2 = cv2.drawKeypoints(img, kp, None, color(0,255,0),flags=0)
-    print(time.time() - time1)
-    cv2.imwrite('orbShapes.png',img)
+    print('Orb Processing Time: %ss' % (time.time()-time1))
+    img2 = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
+    cv2.imwrite('orbShapes.png',img2)
 
 def main():
     #cam = CameraCapture()
     #img = cam.capture()
+    print('Loading Image')
     time0 = time.time()
     img = cv2.imread("shapes.jpg")
-
+    print('Load Time: %ss' % (time.time()-time0))
     OrbFindFeatures(img)
 
-
+    print('Total Time: %ss' % (time.time()-time0))
 
 if __name__ == "__main__":
     main()
