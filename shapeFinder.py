@@ -19,33 +19,36 @@ class CameraCapture:
     def capture(self):
         # capture frames from camera
         #for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
-        	# grab the raw NumPy array representing the image, then initialize the timestamp
-        	# and occupied/unoccupied text
+            # grab the raw NumPy array representing the image, then initialize the timestamp
+            # and occupied/unoccupied text
         self.camera.capture(self.rawCapture, 'bgr')
         image = self.rawCapture.array
         return image
 
 
-def AkazeFindFeatures(img):
-	time1 = time.time()
+def KazeFindFeatures(img):
+    print('Starting kaze Detection')
+    time1 = time.time()
     # setup AKAZE alg
-	akaze = AKAZE_create(descriptor_type=cv2.DESCRIPTOR_MLDB)
-	#akaze = Akaze_create(descriptor_type=cv2.DESCRIPTOR_KAZE)
-	
-	kp, des = akaze.detectAndCompute(img, None);
-	print(time.time() - time1)
+    kaze = cv2.KAZE_create()
+    #akaze = cv2.AKAZE_create(descriptor_type=cv2.DESCRIPTOR_MLDB)
+    #akaze = Akaze_create(descriptor_type=cv2.DESCRIPTOR_KAZE)
+    kp, des = kaze.detectAndCompute(img, None)
+    print('Akaze Processing Time: %ss' % (time.time()-time1))
     img2 = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
-    cv2.imwrite('akazeShapes.png',img2)
+    cv2.imwrite('kazeShapes.png',img2)
 
-def BriskFindFeatures(img)
-	time1 = time.time()
-    # setup BRISK alg
-	brisk = BRISK_create()
-	
-	kp, des = brisk.detectAndCompute(img, None);
-	print(time.time() - time1)
+
+def BriskFindFeatures(img):
+    print('Starting Brisk Detection')
+    time1 = time.time()
+    #setup BRISK alg
+    brisk = cv2.BRISK_create()
+    kp, des = brisk.detectAndCompute(img, None)
+    print('Brisk Processing Time: %ss' % (time.time()-time1))
     img2 = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
     cv2.imwrite('briskShapes.png',img2)
+
 
 def OrbFindFeatures(img):
     print('Starting Orb Detection')
@@ -58,17 +61,20 @@ def OrbFindFeatures(img):
     img2 = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
     cv2.imwrite('orbShapes.png',img2)
 
-def FastFindFeatures(img)
-	time1 = time.time()
-	# setup FAST alg
-	fast = cv2.FastFeatureDetector_create()
-	# disable nonmaxSuppression
-	# fast.setNonmaxSuppression(0)
-	kp = fast.detect(img,None)
-	img2 = cv2.drawKeypoints(img, kp, None, color=(255,0,0))
-	print(time.time() - time1)
-	cv2.imwrite('fastShapes.png',img2)
-	
+
+def FastFindFeatures(img):
+    print('Starting Fast Detection')
+    time1 = time.time()
+    # setup FAST alg
+    fast = cv2.FastFeatureDetector_create()
+    # disable nonmaxSuppression
+    # fast.setNonmaxSuppression(0)
+    kp = fast.detect(img,None)
+    print('Fast Processing Time: %ss' % (time.time()-time1))
+    img2 = cv2.drawKeypoints(img, kp, None, color=(255,0,0))
+    cv2.imwrite('fastShapes.png',img2)
+
+
 def main():
     #cam = CameraCapture()
     #img = cam.capture()
@@ -76,9 +82,12 @@ def main():
     time0 = time.time()
     img = cv2.imread("shapes.jpg")
     print('Load Time: %ss' % (time.time()-time0))
-    OrbFindFeatures(img)
-
+    #OrbFindFeatures(img)
+    #FastFindFeatures(img)
+    #BriskFindFeatures(img)
+    KazeFindFeatures(img)
     print('Total Time: %ss' % (time.time()-time0))
+
 
 if __name__ == "__main__":
     main()
