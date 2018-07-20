@@ -26,9 +26,25 @@ class CameraCapture:
 
 
 def AkazeFindFeatures(img):
+	time1 = time.time()
+    # setup AKAZE alg
+	akaze = AKAZE_create(descriptor_type=cv2.DESCRIPTOR_MLDB)
+	#akaze = Akaze_create(descriptor_type=cv2.DESCRIPTOR_KAZE)
+	
+	kp, des = akaze.detectAndCompute(img, None);
+	print(time.time() - time1)
+    img2 = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
+    cv2.imwrite('akazeShapes.png',img2)
 
-    akaze = Akaze_create(descriptor_type=cv2.DESCRIPTOR_KAZE)
-
+def BriskFindFeatures(img)
+	time1 = time.time()
+    # setup BRISK alg
+	brisk = BRISK_create()
+	
+	kp, des = brisk.detectAndCompute(img, None);
+	print(time.time() - time1)
+    img2 = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
+    cv2.imwrite('briskShapes.png',img2)
 
 def OrbFindFeatures(img):
     time1 = time.time()
@@ -37,10 +53,21 @@ def OrbFindFeatures(img):
 
     kp = orb.detect(img, None)
     kp, des = orb.compute(img, kp)
-    img2 = cv2.drawKeypoints(img, kp, None, color(0,255,0),flags=0)
-    print(time.time() - time1)
-    cv2.imwrite('orbShapes.png',img)
+	print(time.time() - time1)
+    img2 = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
+    cv2.imwrite('orbShapes.png',img2)
 
+def FastFindFeatures(img)
+	time1 = time.time()
+	# setup FAST alg
+	fast = cv2.FastFeatureDetector_create()
+	# disable nonmaxSuppression
+	# fast.setNonmaxSuppression(0)
+	kp = fast.detect(img,None)
+	img2 = cv2.drawKeypoints(img, kp, None, color=(255,0,0))
+	print(time.time() - time1)
+	cv2.imwrite('fastShapes.png',img2)
+	
 def main():
     #cam = CameraCapture()
     #img = cam.capture()
