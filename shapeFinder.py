@@ -12,6 +12,7 @@ class CameraCapture:
     def __init__(self):
         self.camera = PiCamera()
         self.camera.resolution = (320,240)
+        self.camera.start_preview()
         #camera.color_effects = (128,128) #grayscale
         self.camera.framerate = 32
         
@@ -24,9 +25,14 @@ class CameraCapture:
         #for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
             # grab the raw NumPy array representing the image, then initialize the timestamp
             # and occupied/unoccupied text
-        self.rawCapture = PiRGBArray(self.camera, size=(320,240))
-        self.camera.capture(self.rawCapture, 'bgr')
-        image = self.rawCapture.array
+        rawCapture = PiRGBArray(self.camera, size=(320,240))
+        #self.camera.capture(rawCapture, 'bgr')
+        for foo in self.camera.capture_continuous(rawCapture,format="bgr"):  #the output is an RGB Array
+            break
+        #cv2.imshow('test1', rawCapture.array)
+        image = rawCapture.array
+        rawCapture.seek(0)
+        rawCapture.truncate()
         return image
 
 
@@ -152,23 +158,23 @@ def ImageTest():
 
 
     #Show the result in frames
-                #cv2.imshow('HueComp',hthresh)
-                #cv2.imshow('SatComp',sthresh)
-                #cv2.imshow('ValComp',vthresh)
-                #cv2.imshow('closing',closing)
-                cv2.imshow('tracking',img)
-                
-                k = cv2.waitKey(5) & 0xFF
-                if k == 27:
-                    break
+        cv2.imshow('HueComp',hthresh)
+        cv2.imshow('SatComp',sthresh)
+        cv2.imshow('ValComp',vthresh)
+        cv2.imshow('closing',closing)
+        cv2.imshow('tracking',img)
+        
+        k = cv2.waitKey(5) & 0xFF
+        if k == 27:
+            break
         print('Complete')
         #time.sleep(20)
         #cv2.destroyAllWindows()
 
 def main():
-    cam = CameraCapture()
-    img = cam.capture()
-    cv2.imshow('test', img)
+    #cam = CameraCapture()
+    #img = cam.capture()
+    #cv2.imshow('test', img)
     #print('Loading Image')
     #time0 = time.time()
     #img = cv2.imread("shapes.jpg")
@@ -177,7 +183,7 @@ def main():
     #FastFindFeatures(img)
     #BriskFindFeatures(img)
     #KazeFindFeatures(img)
-    #ImageTest()
+    ImageTest()
     print('Total Time: %ss' % (time.time()-time0))
     
     
