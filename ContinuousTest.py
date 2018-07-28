@@ -8,11 +8,14 @@ import picamera
 import picamera.array
 import time
 
+# Size constants
+radiusat10cm = 100
+radiusat20cm = 70
 
 # Threshold values
 bluehmn = 90
 bluehmx = 130
-redhmn = 160
+redhmn = 148
 redhmx = 179
 smn = 20
 smx = 255
@@ -21,6 +24,7 @@ vmx = 255
 
 kernel = np.ones((5,5),np.uint8)
 
+# find hough circles in img
 def houghCircles(img):
 
     # convert to hsv
@@ -63,7 +67,24 @@ def houghCircles(img):
             cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,0,255),5)
             cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,0,255),10)
 
-    return img
+    return img, bluecircles, redcircles
+
+# calculate the distance from a circle
+def calculateDistance(circle):
+    coef = (radiusat10cm - radiusat20cm) / 10 # pixels per cm
+    dist = (circle[2] * coef)
+    return dist
+
+
+def calculatePosition(ldist, rdist):
+    if ldist = rdist:
+        dist = 0
+    elif ldist > rdist:
+        dist = ((25 + ldist**2 - rdist**2 ) / 10 * ldist) - 2.5
+    else
+        dist = -(((25 + rdist**2 - ldist**2 ) / 10 * rdist) - 2.5)
+
+    return dist
 
 
 def main():
@@ -83,7 +104,15 @@ def main():
         image = frame.array
         
         # process image
-        circles = houghCircles(image)
+        img, blue, red = houghCircles(image)
+
+        if blue is not None and red is not None:
+            bdist = calculateDistance(blue[0])
+            rdist = calculateDistance(red[0])
+
+            position = calculatePosition(bdist, rdist)
+
+            print("Position is %scm", position)
 
         # show the frame
         cv2.imshow("Output", circles)
