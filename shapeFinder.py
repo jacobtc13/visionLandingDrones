@@ -8,12 +8,24 @@ import picamera
 import picamera.array
 import time
 
+algnum = 0
+numberoftests = 1
+debugmode = false
+filterimage = true
+
+algorithms = { 0 : KazeFindFeatures,
+               1 : BriskFindFeatures,
+               2 : OrbFindFeatures,
+               3 : FastFindFeatures,
+               4 : HoughCircles,
+}
+
 class CameraCapture:
     def __init__(self):
         self.camera = PiCamera()
         self.camera.resolution = (320,240)
         self.camera.start_preview()
-        #camera.color_effects = (128,128) #grayscale
+        #camera.color_effects = (128,128) #grayscale - needs to be tested to see if it improves anything
         self.camera.framerate = 32
         
         # camera warmupq
@@ -29,66 +41,105 @@ class CameraCapture:
         #self.camera.capture(rawCapture, 'bgr')
         for foo in self.camera.capture_continuous(rawCapture,format="bgr"):  #the output is an RGB Array
             break
-        #cv2.imshow('test1', rawCapture.array)
+        #cv2.imshow('test1', rawCapture.array)- for debugging
         image = rawCapture.array
         rawCapture.seek(0)
         rawCapture.truncate()
         return image
 
 
-def KazeFindFeatures(img):
-    print('Starting kaze Detection')
-    time1 = time.time()
+def KazeFindFeatures(img, fimg):
+    #print('Starting kaze Detection')
     # setup AKAZE alg
     kaze = cv2.KAZE_create()
     #akaze = cv2.AKAZE_create(descriptor_type=cv2.DESCRIPTOR_MLDB)
     #akaze = Akaze_create(descriptor_type=cv2.DESCRIPTOR_KAZE)
-    kp, des = kaze.detectAndCompute(img, None)
+    kp, des = kaze.detectAndCompute(fimg, None)
     print('Akaze Processing Time: %ss' % (time.time()-time1))
-    img2 = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
-    cv2.imwrite('kazeShapes.png',img2)
+    img = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
+    cv2.imwrite('kazeShapes.png',img)
 
 
-def BriskFindFeatures(img):
-    print('Starting Brisk Detection')
-    time1 = time.time()
+def BriskFindFeatures(img, fimg):
+    #print('Starting Brisk Detection')
     #setup BRISK alg
     brisk = cv2.BRISK_create()
-    kp, des = brisk.detectAndCompute(img, None)
+    kp, des = brisk.detectAndCompute(fimg, None)
     print('Brisk Processing Time: %ss' % (time.time()-time1))
-    img2 = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
-    cv2.imwrite('briskShapes.png',img2)
+    img = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
+    #cv2.imwrite('briskShapes.png',img)
 
 
-def OrbFindFeatures(img):
-    print('Starting Orb Detection')
-    time1 = time.time()
+def OrbFindFeatures(img, fimg):
+    #print('Starting Orb Detection')
     # setup ORB alg
     orb = cv2.ORB_create(nfeatures=1000, scoreType=cv2.ORB_FAST_SCORE)
-    kp = orb.detect(img, None)
+    kp = orb.detect(fimg, None)
     kp, des = orb.compute(img, kp)
     print('Orb Processing Time: %ss' % (time.time()-time1))
-    img2 = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
-    cv2.imwrite('orbShapes.png',img2)
+    img = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
+    #cv2.imwrite('orbShapes.png',img)
 
 
-def FastFindFeatures(img):
-    print('Starting Fast Detection')
-    time1 = time.time()
+def FastFindFeatures(img, fimg):
+    #print('Starting Fast Detection')
     # setup FAST alg
     fast = cv2.FastFeatureDetector_create()
     # disable nonmaxSuppression
     # fast.setNonmaxSuppression(0)
-    kp = fast.detect(img,None)
+    kp = fast.detect(fimg,None)
     print('Fast Processing Time: %ss' % (time.time()-time1))
-    img2 = cv2.drawKeypoints(img, kp, None, color=(255,0,0))
-    cv2.imwrite('fastShapes.png',img2)
+    img = cv2.drawKeypoints(img, kp, None, color=(255,0,0))
+    #cv2.imwrite('fastShapes.png',img)
+
+def HoughCircles(img, fimg):
+    #print('Starting Hough Circles')
+    # Detect circles using HoughCircles
+    circles = cv2.HoughCircles(fimg,cv2.HOUGH_GRADIENT,2,120,param1=120,param2=50,minRadius=10,maxRadius=0)
+    # circles = np.uint16(np.around(circles))
+
+    #Draw Circles
+    if circles is not None:
+        for i in circles[0,:]:
+            # If the ball is far, draw it in green
+            if int(round(i[2])) < 30:
+                cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,255,0),5)
+                cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,255,0),10)
+            # else draw it in red
+            elif int(round(i[2])) > 35:
+                cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,0,255),5)
+                cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,0,255),10)
+    #cv2.imwrite('houghCircles.png',img)
+
+def FilterImage(img):
+    kernel = np.ones((5,5),np.uint8)
+    
+    def nothing(x):
+        pass
+
+    #converting to HSV
+    hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+    hue,sat,val = cv2.split(hsv)
+
+    # Apply thresholding
+    hthresh = cv2.inRange(np.array(hue),50,60) # include Hue min and max values here between 0-179
+    sthresh = cv2.inRange(np.array(sat),50,60) # include Sat min and max values here between 0-255
+    vthresh = cv2.inRange(np.array(val),50,60) # include Vlaue min and max values here between 0-255
+
+    # AND h s and v
+    tracking = cv2.bitwise_and(hthresh,cv2.bitwise_and(sthresh,vthresh))
+
+    # Some morpholigical filtering
+    dilation = cv2.dilate(tracking,kernel,iterations = 1)
+    closing = cv2.morphologyEx(dilation, cv2.MORPH_CLOSE, kernel)
+    closing = cv2.GaussianBlur(closing,(5,5),0)
+    return closing
 
 
-def ImageTest():
+def DebugFilters(cam):
     kernel = np.ones((5,5),np.uint8)
     cam = CameraCapture()
-    print('pass')
+    #print('pass')
     
     def nothing(x):
         pass
@@ -133,58 +184,43 @@ def ImageTest():
         closing = cv2.morphologyEx(dilation, cv2.MORPH_CLOSE, kernel)
         closing = cv2.GaussianBlur(closing,(5,5),0)
 
-	# Detect circles using HoughCircles
-        circles = cv2.HoughCircles(closing,cv2.HOUGH_GRADIENT,2,120,param1=120,param2=50,minRadius=10,maxRadius=0)
-	# circles = np.uint16(np.around(circles))
-
-
-	#Draw Circles
-        if circles is not None:
-            for i in circles[0,:]:
-                # If the ball is far, draw it in green
-                if int(round(i[2])) < 30:
-                    cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,255,0),5)
-                    cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,255,0),10)
-                # else draw it in red
-                elif int(round(i[2])) > 35:
-                    cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,0,255),5)
-                    cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,0,255),10)
-                    buzz = 1
-
-    #you can use the 'buzz' variable as a trigger to switch some GPIO lines on Rpi :)
-    # print buzz
-    # if buzz:
-        # put your GPIO line here
-
-
-    #Show the result in frames
+        #Show the result in frames
         cv2.imshow('HueComp',hthresh)
         cv2.imshow('SatComp',sthresh)
         cv2.imshow('ValComp',vthresh)
         cv2.imshow('closing',closing)
         cv2.imshow('tracking',img)
-        
-        k = cv2.waitKey(5) & 0xFF
-        if k == 27:
-            break
-        print('Complete')
-        #time.sleep(20)
-        #cv2.destroyAllWindows()
 
 def main():
-    #cam = CameraCapture()
-    #img = cam.capture()
-    #cv2.imshow('test', img)
-    #print('Loading Image')
-    #time0 = time.time()
-    #img = cv2.imread("shapes.jpg")
-    #print('Load Time: %ss' % (time.time()-time0))
-    #OrbFindFeatures(img)
-    #FastFindFeatures(img)
-    #BriskFindFeatures(img)
-    #KazeFindFeatures(img)
-    ImageTest()
-    print('Total Time: %ss' % (time.time()-time0))
+    # create camera instance
+    cam = CameraCapture()
+
+    if(debugmode):
+        # For testing HSV ranges
+        DebugFilters(cam)
+    else:
+        totaltime = 0.0
+        testsremaining = numberoftests
+        while(testsremaining != 0):   
+            img = cam.capture()
+            fimg = None
+
+            timestart = time.time()
+            # Filter the image if filtering is turned on, else use unfiltered
+            # image for drawing on and display
+            if(filterimage):
+                fimg = FilterImage(img)
+                algorithms[algnum](img, fimg)
+            else:
+                algorithms[algnum](img, img)
+                
+            totaltime += (time.time() - timestart)
+            testsremaining -= 1
+        print('Total Time: %ss' % totaltime)
+        print('Average time taken per frame: %ss' % (totaltime/numberoftests))
+
+    # cleanup after running tests
+    cv2.destroyAllWindows()
     
     
 
