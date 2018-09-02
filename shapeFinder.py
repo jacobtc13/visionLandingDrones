@@ -18,6 +18,10 @@ algorithms = { 0 : KazeFindFeatures,
                2 : OrbFindFeatures,
                3 : FastFindFeatures,
                4 : HoughCircles,
+               5 : LaplacianEdgeDetection,
+               6 : SobelXEdgeDetection,
+               7 : SobelYEdgeDetection,
+               8 : CannyEdgeDetection
 }
 
 class CameraCapture:
@@ -110,6 +114,50 @@ def HoughCircles(img, fimg):
                 cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,0,255),5)
                 cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,0,255),10)
     #cv2.imwrite('houghCircles.png',img)
+
+def LaplacianEdgeDetection(img, fimg):
+    laplacian = cv2.Laplacian(fimg,cv2.CV_64F)
+
+    #draw filtered image
+    plt.subplot(2,2,2),plt.imshow(laplacian,cmap = 'gray')
+    plt.title('Laplacian'), plt.xticks([]), plt.yticks([])
+
+def SobelXEdgeDetection(img, fimg):
+    sobelx = cv2.Sobel(img,cv2.CV_64F,1,0,ksize=5)
+
+    #draw filtered image
+    plt.title('Sobel X'), plt.xticks([]), plt.yticks([])
+    plt.subplot(2,2,4),plt.imshow(sobely,cmap = 'gray')
+
+def SobelYEdgeDetection(img, fimg):
+    sobelx = cv2.Sobel(img,cv2.CV_64F,1,0,ksize=5)
+
+    #draw filtered image
+    plt.subplot(2,2,4),plt.imshow(sobely,cmap = 'gray')
+    plt.title('Sobel Y'), plt.xticks([]), plt.yticks([])
+
+
+def CannyEdgeDetection(img, fimg)
+    # Create a matrix of the same type and size as src (for dst)
+    #dst.create( src.size(), src.type() )
+
+    # Create a window
+    cv2.namedWindow( 'Edge map' )
+
+    # Create a Trackbar for user to enter threshold
+    cv2.createTrackbar( 'thresh', 'Edge map', 1, 100, nothing)
+
+    cv2.blur(fimg, detected_edges, Size(3,3))
+
+    thres = cv2.getTrackbarPos('thresh','Edge map')
+    
+    cv2.Canny(detected_edges, detected_edges, thres, thres*3, 3)
+
+    #show image here
+
+def Grayscale(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return img
 
 def FilterImage(img):
     kernel = np.ones((5,5),np.uint8)
