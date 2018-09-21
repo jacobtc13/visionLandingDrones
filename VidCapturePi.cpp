@@ -4,277 +4,15 @@
 
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/features2d/features2d.hpp"
 
 using namespace cv;
 using namespace std;
 
-string window_name = "Original Video | q to quit";
-
-// Stores HSV colour details for particular named block
-// Also stores signal to be output to robot
-// Stores x and y positions of centroid for a locating block
-class Block
-{
-public:
-	// members
-	// H - Hue, S - Saturation, V - Value
-	int iLowH;
-	int iHighH;
-	int iLowS;
-	int iHighS;
-	int iLowV;
-	int iHighV;
-	unsigned char signal; // bit signal to be sent to serial port
-	string name;
-	double xPos;
-	double yPos;
-	bool Found;
-
-	// constructor and destructor
-	Block() {};
-	~Block() {};
-};
-
-// Global Variables
-// Required for tracker bar debugging to refine the HSV values for block detection
-vector <Block> Blocks;
-Mat frame;
-
-// Sets HSV values for block depending on colour.
-// Also sets a name, and specific signal for use with robot / serial port
-void inialiseBlocks(vector <Block> &bvec)
-{
-	Block br;
-	br.name = "Red";
-	br.iLowH = 170;
-	br.iHighH = 179;
-	br.iLowS = 150;
-	br.iHighS = 255;
-	br.iLowV = 60;
-	br.iHighV = 255;
-	br.signal = 0b00000001;
-	bvec.push_back(br);
-
-	Block by;
-	by.name = "Yellow";
-	by.iLowH = 4;
-	by.iHighH = 30;
-	by.iLowS = 90;
-	by.iHighS = 255;
-	by.iLowV = 60;
-	by.iHighV = 255;
-	by.signal = 0b00000010;
-	bvec.push_back(by);
-
-	// Went with Green colour instead of White
-	// Difficult to determine white from the grey background
-	// Had to use a fine range for saturation (0-13)
-	// All other blocks had their own Hue ranges
-	Block bg;
-	bg.name = "Green";
-	bg.iLowH = 10; //50
-	bg.iHighH = 160; // 80 // 90-130 seems to be good range for green
-	bg.iLowS = 170; //194 //150 default //190-195 is good range for green
-	bg.iHighS = 255;
-	bg.iLowV = 60;
-	bg.iHighV = 255;
-	bg.signal = 0b00000100;
-	bvec.push_back(bg);
-}
-
-
-// Standard Image processing functions
-// Converts BGR to HSV, and identifies qualifying pixels in image.
-// Dilate/Erode functions coalesce the pixels in the image to form blobs
-void ProcessImage(Mat& src, Block& bproc, Mat& dst)
-{
-	Mat imgHSV;
-
-	//Convert the captured frame from BGR to HSV
-	cvtColor(src, imgHSV, COLOR_BGR2HSV);
-
-	// is this pixel the expected colour? 
-	inRange(imgHSV, Scalar(bproc.iLowH, bproc.iLowS, bproc.iLowV), Scalar(bproc.iHighH, bproc.iHighS, bproc.iHighV), dst); //Threshold the image
-
-    //morphological opening (removes small objects from the foreground)
-	erode(dst, dst, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
-	dilate(dst, dst, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
-
-	//morphological closing (removes small holes from the foreground)
-	dilate(dst, dst, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
-	erode(dst, dst, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
-}
-
-
-
-// find contours in proc and draw to dst
-// Draw an outline around the largest blob
-void ObjectBounding(Mat& proc, Mat& dst)
-{
-	vector<vector<Point> > contours;
-	vector<Vec4i> hierarchy;
-
-	findContours(proc, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
-
-	/// Approximate contours to polygons + get bounding rects and circles
-	vector<Point> contour_poly;
-	Rect boundRect;
-	vector<Point2f>center(contours.size());
-	vector<float>radius(contours.size());
-
-	/// Draw polygonal contour + bonding rects
-	dst = Mat::zeros(proc.size(), CV_8UC3);
-
-	// Find the largest contour
-	int largestIndex = 0;
-	int largestContour = 0;
-	int secondLargestIndex = 0;
-	int secondLargestContour = 0;
-	for (int i = 0; i< contours.size(); i++)
-	{
-		if (contours[i].size() > largestContour)
-		{
-			secondLargestContour = largestContour;
-			secondLargestIndex = largestIndex;
-			largestContour = contours[i].size();
-			largestIndex = i;
-		}
-		else if (contours[i].size() > secondLargestContour)
-		{
-			secondLargestContour = contours[i].size();
-			secondLargestIndex = i;
-		}
-	}
-	Scalar color = Scalar(0, 0, 255);
-	// Draw the largest contour in dst
-	approxPolyDP(Mat(contours[largestIndex]), contour_poly, 3, true);
-	boundRect = boundingRect(Mat(contour_poly));
-
-	drawContours(dst, contours, largestIndex, color, 5, 8);
-	rectangle(dst, boundRect, color, 10, 8, 0);
-}
-
-// Checks the count of white pixels against the threshold
-// If the count is higher then the block has been found
-bool FoundBlock(Mat &vidsrc, Block &b)
-{
-	b.Found = false;
-	Mat imgproc;
-	ProcessImage(vidsrc, b, imgproc);
-	//----//imshow("Processed Window", imgproc);
-	imshow(b.name, imgproc); // static imaging - debugging
-
-							 //Calculate the moments of the thresholded image
-							 // if moments area is not large enough, return false
-	Moments oMoments = moments(imgproc);
-	double dArea = oMoments.m00;
-	double w = imgproc.size().width;
-	double h = imgproc.size().height;
-
-	double x = w*h;
-	// 70% of the area must be white pixels
-	double threshold = x*.7;
-
-	if (dArea < threshold)
-	{
-		return false;
-	}
-
-	// Once found draw a bouding box around block
-	// Calculate centroid for block positioning
-	b.Found = true;
-	Mat contour;
-	ObjectBounding(imgproc, contour);
-	vidsrc = vidsrc + contour;
-	imshow(window_name, vidsrc);
-	b.xPos = oMoments.m10 / oMoments.m00;
-	b.yPos = oMoments.m01 / oMoments.m00;
-	return true;
-
-}
-
-// Debugging - shows a new window with tracker bars to determine HSV values
-// Was most useful for testing the white block against grey background
-const string trackbarWindowName = "Trackbars";
-//This function gets called whenever a trackbar position is changed
-void on_trackbar(int, void*)
-{
-	// Recalculates and Redraws in white window and colour image
-	FoundBlock(frame, Blocks[2]); // [2] = green block
-}
-
-void createTrackbars(Block& b)
-{
-	//create window for trackbars
-	namedWindow(trackbarWindowName, 0);
-	//create trackbars and insert them into window
-	//3 parameters are: the address of the variable that is changing when the trackbar is moved
-	//the max value the trackbar can move 
-	//and the function that is called whenever the trackbar is moved(eg. on_trackbar)
-	//                                  ---->    ---->     ---->      
-	createTrackbar("H_MIN", trackbarWindowName, &b.iLowH, b.iHighH, on_trackbar);
-	createTrackbar("H_MAX", trackbarWindowName, &b.iHighH, b.iHighH, on_trackbar);
-	createTrackbar("S_MIN", trackbarWindowName, &b.iLowS, b.iHighS, on_trackbar);
-	createTrackbar("S_MAX", trackbarWindowName, &b.iHighS, b.iHighS, on_trackbar);
-	createTrackbar("V_MIN", trackbarWindowName, &b.iLowV, b.iHighV, on_trackbar);
-	createTrackbar("V_MAX", trackbarWindowName, &b.iHighV, b.iHighV, on_trackbar);
-}
-
-void MserFindFeatures()
-{
-	
-}
-
-void BriskFindFeatures()
-{
-	
-}
-
-void OrbFindFeatures()
-{
-	int MAX_FEATURES = 500;
-	std::vector<KeyPoint> keypoints1;
-  	Mat descriptors1;
-   
-  	// Detect ORB features and compute descriptors.
-  	Ptr<Feature2D> orb = ORB::create(MAX_FEATURES);
-  	orb->detectAndCompute(src, Mat(), keypoints1, descriptors1);
-}
-
-void LaplacianEdgeDetection()
-{
- 	/// Remove noise by blurring with a Gaussian filter
-  	GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
-
-  	/// Convert the image to grayscale
-  	cvtColor( src, src_gray, CV_BGR2GRAY );
-
-  	/// Create window
-  	namedWindow( window_name, CV_WINDOW_AUTOSIZE );
-
-  	/// Apply Laplace function
-  	Mat abs_dst;
-
-  	Laplacian( src_gray, dst, ddepth, kernel_size, scale, delta, BORDER_DEFAULT );
-  	convertScaleAbs( dst, abs_dst );
-
-  	/// Show what you got
-  	imshow( window_name, abs_dst );
-}
-
-void HarrisCornerDetection()
-{
-	
-}
-
-void HoughCircles()
-{
-
-}
-
-
 // Generic
-Mat src, src_gray;
+string window_name = "Original Video | q to quit";
+const string trackbarWindowName = "Trackbars";
+Mat src, src_gray, src_hsv;
 Mat dst, detected_edges;
 
 // Canny
@@ -292,8 +30,208 @@ int delta = 0;
 int ddepth = CV_16S;
 int c;
 
+// Shi Tomasi
+int maxCorners = 23;
+int maxTrackbar = 100;
+RNG rng(12345);
+
+///////////////
+/// Camera  ///
+///////////////
+
+
+
+//////////////////
+/// Debugging  ///
+//////////////////
+
+// This function gets called whenever a trackbar position is changed
+void on_trackbar(int, void*)
+{
+	// FIXME: Potentially delete this function
+	// Recalculates and Redraws in white window and colour image
+	//FoundBlock(frame, Blocks[2]); // [2] = green block
+}
+
+// Create trackbars for debugging
+void createTrackbars(Block& b)
+{
+	//create window for trackbars
+	namedWindow(trackbarWindowName, 0);
+
+	//create trackbars and insert them into window FIXME: Possibly remove functions here
+	createTrackbar("H_MIN", trackbarWindowName, &b.iLowH, b.iHighH, on_trackbar);
+	createTrackbar("H_MAX", trackbarWindowName, &b.iHighH, b.iHighH, on_trackbar);
+	createTrackbar("S_MIN", trackbarWindowName, &b.iLowS, b.iHighS, on_trackbar);
+	createTrackbar("S_MAX", trackbarWindowName, &b.iHighS, b.iHighS, on_trackbar);
+	createTrackbar("V_MIN", trackbarWindowName, &b.iLowV, b.iHighV, on_trackbar);
+	createTrackbar("V_MAX", trackbarWindowName, &b.iHighV, b.iHighV, on_trackbar);
+}
+
+//////////////////////////
+/// Feature Detection  ///
+//////////////////////////
+
+void MserFindFeatures()
+{
+    Ptr<MSER> ms = MSER::create();
+    vector<vector<Point> > regions;
+    vector<cv::Rect> mser_bbox;
+    ms->detectRegions(img, regions, mser_bbox);
+    
+    for (int i = 0; i < regions.size(); i++)
+    {
+        rectangle(img, mser_bbox[i], CV_RGB(0, 255, 0));  
+    }
+    
+    imshow("mser", img);
+}
+
+/// Example found at http://answers.opencv.org/question/4260/how-to-use-brisk-in-opencv/
+void BriskFindFeatures()
+{
+	const char * PimA="box.png";   // object
+   	const char * PimB="box_in_scene.png"; // image
+
+   	cv::Mat GrayA =cv::imread(PimA);
+   	cv::Mat GrayB =cv::imread(PimB);
+   	std::vector<cv::KeyPoint> keypointsA, keypointsB;
+   	cv::Mat descriptorsA, descriptorsB;
+	//set brisk parameters
+
+   	int Threshl=60;
+   	int Octaves=4; (pyramid layer) from which the keypoint has been extracted
+   	float PatternScales=1.0f;
+	//declare a variable BRISKD of the type cv::BRISK
+
+   	cv::BRISK  BRISKD(Threshl,Octaves,PatternScales);//initialize algoritm
+   	BRISKD.create("Feature2D.BRISK");
+
+   	BRISKD.detect(GrayA, keypointsA);
+   	BRISKD.compute(GrayA, keypointsA,descriptorsA);
+
+   	BRISKD.detect(GrayB, keypointsB);
+   	BRISKD.compute(GrayB, keypointsB,descriptorsB);
+}
+
+/// Example found at http://answers.opencv.org/question/68547/opencv-30-fast-corner-detection/
+void FastFindFeatures()
+{
+	vector<KeyPoint> keypointsD;
+	Ptr<FastFeatureDetector> detector=FastFeatureDetector::create();
+	vector<Mat> descriptor;
+
+	detector->detect(src,keypointsD,Mat());
+	drawKeypoints(src, keypointsD, src);
+	imshow("keypoints",src);
+}
+
+void OrbFindFeatures()
+{
+	// Setup Orb features
+	int MAX_FEATURES = 500;
+	std::vector<KeyPoint> keypoints1;
+  	Mat descriptors1;
+   
+  	// Detect ORB features and compute descriptors.
+  	Ptr<Feature2D> orb = ORB::create(MAX_FEATURES);
+  	orb->detectAndCompute(src, Mat(), keypoints1, descriptors1);
+	drawKeypoints(src, keypoints1, src);
+	imshow("keypoints",src);
+}
+
+////////////////////////
+/// Corner Detection ///
+////////////////////////
+
+void HarrisCornerDetection()
+{
+	/// Set parameters
+	Mat dst_norm, dst_norm_scaled;
+  	dst = Mat::zeros( src.size(), CV_32FC1 );
+  	int blockSize = 2;
+  	int apertureSize = 3;
+  	double k = 0.04;
+
+	/// Perform Harris Corner Detection
+  	cornerHarris( src_gray, dst, blockSize, apertureSize, k, BORDER_DEFAULT );
+  	normalize( dst, dst_norm, 0, 255, NORM_MINMAX, CV_32FC1, Mat() );
+  	convertScaleAbs( dst_norm, dst_norm_scaled );
+
+	/// Draw circles where corners are
+  	for( int j = 0; j < dst_norm.rows ; j++ )
+    { 
+		for( int i = 0; i < dst_norm.cols; i++ )
+       	{
+           	if( (int) dst_norm.at<float>(j,i) > thresh )
+           	{
+          		circle( dst_norm_scaled, Point( i, j ), 5,  Scalar(0), 2, 8, 0 );
+           	}
+       	}
+    }
+
+	/// Display image
+  	namedWindow( corners_window, WINDOW_AUTOSIZE );
+  	imshow( corners_window, dst_norm_scaled );
+}
+
+void ShiTomasiCornerDetection()
+{
+	if( maxCorners < 1 ) 
+	{ 
+		maxCorners = 1; 
+	}
+
+	/// Create vector for corners
+  	vector<Point2f> corners;
+  	double qualityLevel = 0.01;
+  	double minDistance = 10;
+  	int blockSize = 3;
+  	bool useHarrisDetector = false;
+  	double k = 0.04;
+  	Mat copy;
+  	copy = src.clone();
+  	goodFeaturesToTrack( src_gray, corners, maxCorners, qualityLevel, minDistance, Mat(), blockSize, useHarrisDetector, k);
+  	int r = 4;
+
+	/// Draw on image where corners are
+  	for( size_t i = 0; i < corners.size(); i++ )
+    { 
+		circle( copy, corners[i], r, Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255)), -1, 8, 0 ); 
+	}
+
+	/// Display image
+  	namedWindow( source_window, WINDOW_AUTOSIZE );
+  	imshow( source_window, copy );
+}
+
+//////////////////////
+/// Edge Detection ///
+//////////////////////
+
+void LaplacianEdgeDetection()
+{
+ 	/// Remove noise by blurring with a Gaussian filter
+  	GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
+
+  	/// Convert the image to grayscale
+  	cvtColor( src, src_gray, CV_BGR2GRAY );
+
+  	/// Create window
+  	namedWindow( window_name, CV_WINDOW_AUTOSIZE );
+
+  	/// Apply Laplace function
+  	Mat abs_dst;
+  	Laplacian( src_gray, dst, ddepth, kernel_size, scale, delta, BORDER_DEFAULT );
+  	convertScaleAbs( dst, abs_dst );
+
+  	/// Show what you got
+  	imshow( window_name, abs_dst );
+}
+
 void SobelEdgeDetection()
 {
+	/// Remove noise by blurring with a Gaussian filter
 	GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
 
   	/// Convert it to gray
@@ -337,6 +275,36 @@ void CannyEdgeDetection()
 	imshow( window_name, dst );
 }
 
+////////////////////////
+/// Other Detection  ///
+////////////////////////
+
+/// Example at https://docs.opencv.org/2.4/doc/tutorials/imgproc/imgtrans/hough_circle/hough_circle.html
+void HoughCircles()
+{
+	/// Convert to HSV colour space
+	cvtColor(src, src_hsv, COLOR_BGR2HSV);
+
+	/// Create vector to store circles
+	vector<Vec3f> circles;
+
+	/// Apply the Hough Transform to find the circles
+ 	HoughCircles( src_hsv, circles, CV_HOUGH_GRADIENT, 1, src_hsv.rows/8, 200, 100, 0, 0 );
+
+  	/// Draw the circles detected
+  	for( size_t i = 0; i < circles.size(); i++ )
+  	{
+    	Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+      	int radius = cvRound(circles[i][2]);
+      	// circle center
+      	circle( src, center, 3, Scalar(0,255,0), -1, 8, 0 );
+      	// circle outline
+      	circle( src, center, radius, Scalar(0,0,255), 3, 8, 0 );
+   	}
+}
+
+
+
 // Program entry point
 int main()
 {
@@ -366,69 +334,3 @@ int main()
 	  
 	return 0;
 }
-
-
-	/*Block* LowestBlock;
-	//----//namedWindow("Processed Window", WINDOW_NORMAL);
-	inialiseBlocks(Blocks);
-	namedWindow("Red", WINDOW_NORMAL); // static imaging - debug
-	namedWindow("Yellow", WINDOW_NORMAL);// static imaging - debug
-	namedWindow("Green", WINDOW_NORMAL);// static imaging - debug
-
-	VideoCapture capture(0); //try to open string, this will attempt to open it as a video file
-	if (!capture.isOpened())
-	{
-		cerr << "Failed to open a video device or video file!\n" << endl;
-		return 1;
-	}
-	cout << "press q to quit" << endl;
-	//namedWindow(window_name, CV_WINDOW_KEEPRATIO); //resizable window;
-	namedWindow(window_name, WINDOW_NORMAL);
-	//vidcap
-	for (;;)
-	{
-		capture.read(frame); //vidcap
-							 //frame = imread("C:\\Users\\LockTop\\Desktop\\aaaa.jpg", CV_LOAD_IMAGE_COLOR); // static image testing - debugging
-		if (frame.empty()) //vidcap
-			break; //vidcap
-
-		imshow(window_name, frame);
-		char key = (char)waitKey(5); //delay N millis, usually long enough to display and capture input
-		if (key == 'q')
-			return 0;
-		// cycle through blocks, if found the bool will be changed to true
-		// find all 3 coloured blocks
-		for (int i = 0; i < Blocks.size(); i++)
-		{
-			FoundBlock(frame, Blocks[i]);
-		}
-		LowestBlock = NULL;  // there is no current lowestblock set yet
-							 // cycle through blocks, 
-							 // if all are found, determine the block with the lowest y value
-							 // and send the signal for that block
-		for (int i = 0; i < Blocks.size(); i++)
-		{
-			if (!Blocks[i].Found) // if not all blocks have been found then keep going until all found
-			{
-				continue;
-			}
-			if (LowestBlock)
-			{
-				//if (LowestBlock->yPos < Blocks[i].yPos)
-				if (LowestBlock->xPos > Blocks[i].xPos)
-					LowestBlock = &Blocks[i];
-			}
-			else
-			{
-				LowestBlock = &Blocks[i];
-			}
-		}
-		if (LowestBlock)
-		{
-			SendSignal(*LowestBlock);
-		}
-		//createTrackbars(Blocks[2]); //- trackbar function call for debugging
-	}
-	waitKey(0);
-	return 0;
-}*/
