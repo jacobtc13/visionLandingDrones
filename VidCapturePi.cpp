@@ -10,30 +10,12 @@ using namespace cv;
 using namespace std;
 
 // Generic
-string window_name = "Original Video | q to quit";
-const string trackbarWindowName = "Trackbars";
-Mat src, src_gray, src_hsv;
-Mat dst, detected_edges;
+Mat src, src_filt, dst;
 
-// Canny
-int edgeThresh = 1;
-int lowThreshold;
-int const max_lowThreshold = 100;
-int ratio = 3;
-int kernel_size = 3;
-char* window_name = "Edge Map";
+// Feature detection
+vector<KeyPoint> keypoints;
+Mat descriptors;
 
-// Sobel
-Mat grad;
-int scale = 1;
-int delta = 0;
-int ddepth = CV_16S;
-int c;
-
-// Shi Tomasi
-int maxCorners = 23;
-int maxTrackbar = 100;
-RNG rng(12345);
 
 ///////////////
 /// Camera  ///
@@ -48,18 +30,19 @@ RNG rng(12345);
 // This function gets called whenever a trackbar position is changed
 void on_trackbar(int, void*)
 {
-	// FIXME: Potentially delete this function
-	// Recalculates and Redraws in white window and colour image
-	//FoundBlock(frame, Blocks[2]); // [2] = green block
+	// Do nothing
 }
 
 // Create trackbars for debugging
 void createTrackbars(Block& b)
 {
-	//create window for trackbars
-	namedWindow(trackbarWindowName, 0);
+	// Trackbar window name
+	string trackbarWindowName = "Trackbars";
 
-	//create trackbars and insert them into window FIXME: Possibly remove functions here
+	// create window for trackbars
+	namedWindow("Trackbars", 0);
+
+	// create trackbars and insert them into window 
 	createTrackbar("H_MIN", trackbarWindowName, &b.iLowH, b.iHighH, on_trackbar);
 	createTrackbar("H_MAX", trackbarWindowName, &b.iHighH, b.iHighH, on_trackbar);
 	createTrackbar("S_MIN", trackbarWindowName, &b.iLowS, b.iHighS, on_trackbar);
@@ -72,72 +55,127 @@ void createTrackbars(Block& b)
 /// Feature Detection  ///
 //////////////////////////
 
+// API Reference: https://docs.opencv.org/3.4/d3/d28/classcv_1_1MSER.html#a136c6b29fbcdd783a1003bf429fa17ed
 void MserFindFeatures()
 {
-    Ptr<MSER> ms = MSER::create();
-    vector<vector<Point> > regions;
-    vector<cv::Rect> mser_bbox;
-    ms->detectRegions(img, regions, mser_bbox);
+	// Apply filtering/colourspace changes to src image
+	//
+
+	// Setup alg parameters
+	vector<vector<Point> > regions;
+    vector<Rect> mser_bbox;
+
+	int = delta = 5;
+	int = min_area = 60;
+	int = max_area = 14400;
+	double = max_variation = 0.25;
+	double = min_diversity = .2;
+	int = max_evolution = 200;
+	double = area_threshold = 1.01;
+	double = min_margin = 0.003;
+	int = edge_blur_size = 5;
+
+	// Initialise algorithm with parameters
+	Ptr<MSER> ms = MSER::create(delta, min_area, max_area, max_variation, min_diversity, max_evolution, area_threshold, min_margin, edge_blur_size);
+
+	// Detect features
+    ms->detectRegions(src, regions, mser_bbox);
     
+	// Draw features on image
     for (int i = 0; i < regions.size(); i++)
     {
-        rectangle(img, mser_bbox[i], CV_RGB(0, 255, 0));  
+        rectangle(src, mser_bbox[i], CV_RGB(0, 255, 0));  
     }
     
-    imshow("mser", img);
+	// Show image
+    imshow("MSER Feature Detection", src);
 }
 
 /// Example found at http://answers.opencv.org/question/4260/how-to-use-brisk-in-opencv/
+/// Example compares 2 different images
 void BriskFindFeatures()
 {
-	const char * PimA="box.png";   // object
-   	const char * PimB="box_in_scene.png"; // image
+	// Apply filtering/colourspace changes to src image
+	//
 
-   	cv::Mat GrayA =cv::imread(PimA);
-   	cv::Mat GrayB =cv::imread(PimB);
-   	std::vector<cv::KeyPoint> keypointsA, keypointsB;
-   	cv::Mat descriptorsA, descriptorsB;
-	//set brisk parameters
+	// Load in image to be matched TODO: Replace with something or fix
+   	const char * PimB="box_in_scene.png";
+	Mat src_obj = imread(PimB);
+   	
+	// Setup alg parameters
+	vector<KeyPoint> keypoints_obj;
+   	Mat descriptors_obj;
+   	int Thresh = 30; // originally 60
+   	int Octaves = 3; // (pyramid layer) from which the keypoint has been extracted, originally 4
+   	float PatternScales = 1.0f;
 
-   	int Threshl=60;
-   	int Octaves=4; (pyramid layer) from which the keypoint has been extracted
-   	float PatternScales=1.0f;
-	//declare a variable BRISKD of the type cv::BRISK
+	// Initialise algorithm with parameters
+	Ptr<BRISK> detector = BRISK::create(Thresh, Octaves, PatternScales);
 
-   	cv::BRISK  BRISKD(Threshl,Octaves,PatternScales);//initialize algoritm
-   	BRISKD.create("Feature2D.BRISK");
+	// Detect features
+   	detector->detectAndCompute(src, Mat(), keypoints, descriptors);
+   	detector->detectAndCompute(src_obj, Mat(), keypoints_obj, descriptors_obj);
 
-   	BRISKD.detect(GrayA, keypointsA);
-   	BRISKD.compute(GrayA, keypointsA,descriptorsA);
+	// Draw features on image
+	//
 
-   	BRISKD.detect(GrayB, keypointsB);
-   	BRISKD.compute(GrayB, keypointsB,descriptorsB);
+	// Show image
+	//
 }
 
 /// Example found at http://answers.opencv.org/question/68547/opencv-30-fast-corner-detection/
+/// Class reference: https://docs.opencv.org/3.4/df/d74/classcv_1_1FastFeatureDetector.html
 void FastFindFeatures()
 {
-	vector<KeyPoint> keypointsD;
-	Ptr<FastFeatureDetector> detector=FastFeatureDetector::create();
-	vector<Mat> descriptor;
+	// Apply filtering/colourspace changes to src image
+	//
 
-	detector->detect(src,keypointsD,Mat());
-	drawKeypoints(src, keypointsD, src);
-	imshow("keypoints",src);
+	// Setup alg parameters
+	int threshold = 10;
+	bool nonmaxSuppression = true;
+	int	type = FastFeatureDetector::TYPE_9_16; // Can be TYPE_7_12 and TYPE_5_8
+
+	// Initialise algorithm with parameters
+	Ptr<FastFeatureDetector> fast = FastFeatureDetector::create(threshold, nonmaxSuppression, type);
+
+	// Detect features
+	fast->detect(src, keypoints, Mat());
+
+	// Draw features on image
+	drawKeypoints(src, keypoints, src);
+
+	// Show image
+	imshow("Fast Find Features",src);
 }
 
+/// Class Reference: 
 void OrbFindFeatures()
 {
-	// Setup Orb features
-	int MAX_FEATURES = 500;
-	std::vector<KeyPoint> keypoints1;
-  	Mat descriptors1;
+	// Apply filtering/colourspace changes to src image
+	//
+
+	// Setup alg parameters
+	int	nfeatures = 500;
+	float scaleFactor = 1.2f;
+	int	nlevels = 8;
+	int	edgeThreshold = 31;
+	int	firstLevel = 0;
+	int	WTA_K = 2;
+	int	scoreType = ORB::HARRIS_SCORE; // Can also be FAST_SCORE
+	int	patchSize = 31;
+	int	fastThreshold = 20; 
    
-  	// Detect ORB features and compute descriptors.
-  	Ptr<Feature2D> orb = ORB::create(MAX_FEATURES);
-  	orb->detectAndCompute(src, Mat(), keypoints1, descriptors1);
-	drawKeypoints(src, keypoints1, src);
-	imshow("keypoints",src);
+  	// Initialise algorithm with parameters
+  	Ptr<ORB> orb = ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, scoreType, patchSize, fastThreshold);
+  	
+	// Detect features  
+	orb->detectAndCompute(src, Mat(), keypoints, descriptors);
+
+	// Draw features on image
+	drawKeypoints(src, keypoints, src);
+
+	// Show image
+	imshow("ORB Find Features",src);
 }
 
 ////////////////////////
@@ -146,19 +184,22 @@ void OrbFindFeatures()
 
 void HarrisCornerDetection()
 {
-	/// Set parameters
+	// Apply filtering/colourspace changes to src image
+	cvtColor( src, src_filt, CV_BGR2GRAY );
+
+	// Setup alg parameters
 	Mat dst_norm, dst_norm_scaled;
   	dst = Mat::zeros( src.size(), CV_32FC1 );
   	int blockSize = 2;
   	int apertureSize = 3;
   	double k = 0.04;
 
-	/// Perform Harris Corner Detection
-  	cornerHarris( src_gray, dst, blockSize, apertureSize, k, BORDER_DEFAULT );
+	// Detect features  
+  	cornerHarris( src_filt, dst, blockSize, apertureSize, k, BORDER_DEFAULT );
   	normalize( dst, dst_norm, 0, 255, NORM_MINMAX, CV_32FC1, Mat() );
   	convertScaleAbs( dst_norm, dst_norm_scaled );
 
-	/// Draw circles where corners are
+	// Draw features on image
   	for( int j = 0; j < dst_norm.rows ; j++ )
     { 
 		for( int i = 0; i < dst_norm.cols; i++ )
@@ -170,39 +211,44 @@ void HarrisCornerDetection()
        	}
     }
 
-	/// Display image
-  	namedWindow( corners_window, WINDOW_AUTOSIZE );
-  	imshow( corners_window, dst_norm_scaled );
+	// Show image
+  	imshow( "Harris Corner Detection", dst_norm_scaled );
 }
 
 void ShiTomasiCornerDetection()
 {
+	// Apply filtering/colourspace changes to src image
+	cvtColor( src, src_filt, CV_BGR2GRAY );
+
+	// Safety check
+	int maxCorners = 23;
 	if( maxCorners < 1 ) 
 	{ 
 		maxCorners = 1; 
 	}
 
-	/// Create vector for corners
+	// Setup alg parameters
   	vector<Point2f> corners;
   	double qualityLevel = 0.01;
   	double minDistance = 10;
   	int blockSize = 3;
   	bool useHarrisDetector = false;
   	double k = 0.04;
-  	Mat copy;
-  	copy = src.clone();
-  	goodFeaturesToTrack( src_gray, corners, maxCorners, qualityLevel, minDistance, Mat(), blockSize, useHarrisDetector, k);
+	int maxTrackbar = 100;
+	RNG rng(12345);
+
+	// Detect features  
+  	goodFeaturesToTrack( src_filt, corners, maxCorners, qualityLevel, minDistance, Mat(), blockSize, useHarrisDetector, k);
   	int r = 4;
 
-	/// Draw on image where corners are
+	// Draw features on image
   	for( size_t i = 0; i < corners.size(); i++ )
     { 
-		circle( copy, corners[i], r, Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255)), -1, 8, 0 ); 
+		circle( src_filt, corners[i], r, Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255)), -1, 8, 0 ); 
 	}
 
-	/// Display image
-  	namedWindow( source_window, WINDOW_AUTOSIZE );
-  	imshow( source_window, copy );
+	// Show image
+  	imshow( "Harris Corner Detection", src_filt );
 }
 
 //////////////////////
@@ -211,68 +257,85 @@ void ShiTomasiCornerDetection()
 
 void LaplacianEdgeDetection()
 {
- 	/// Remove noise by blurring with a Gaussian filter
+	// Apply filtering/colourspace changes to src image
   	GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
+  	cvtColor( src, src_filt, CV_BGR2GRAY );
 
-  	/// Convert the image to grayscale
-  	cvtColor( src, src_gray, CV_BGR2GRAY );
+	// Setup alg parameters
+  	int kernel_size = 3;
+  	int scale = 1;
+  	int delta = 0;
+  	int ddepth = CV_16S;
+	Mat abs_dst;
 
-  	/// Create window
-  	namedWindow( window_name, CV_WINDOW_AUTOSIZE );
-
-  	/// Apply Laplace function
-  	Mat abs_dst;
-  	Laplacian( src_gray, dst, ddepth, kernel_size, scale, delta, BORDER_DEFAULT );
+  	// Detect features  
+  	Laplacian( src_filt, dst, ddepth, kernel_size, scale, delta, BORDER_DEFAULT );
   	convertScaleAbs( dst, abs_dst );
 
-  	/// Show what you got
-  	imshow( window_name, abs_dst );
+  	// Show image
+  	imshow( "Laplacian Edge Detection", abs_dst );
 }
 
 void SobelEdgeDetection()
 {
-	/// Remove noise by blurring with a Gaussian filter
+	// Apply filtering/colourspace changes to src image
 	GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
-
-  	/// Convert it to gray
-  	cvtColor( src, src_gray, CV_BGR2GRAY );
+  	cvtColor( src, src_filt, CV_BGR2GRAY );
 
   	/// Create window
-  	namedWindow( window_name, CV_WINDOW_AUTOSIZE );
+  	//namedWindow( "Sobel Edge Detection", CV_WINDOW_AUTOSIZE );
+
+	// Setup alg parameters
+	Mat grad;
+	int scale = 1;
+	int delta = 0;
+	int ddepth = CV_16S;
+	//int c;
 
   	/// Generate grad_x and grad_y
   	Mat grad_x, grad_y;
   	Mat abs_grad_x, abs_grad_y;
 
   	/// Gradient X
-  	//Scharr( src_gray, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );
-  	Sobel( src_gray, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT );
+  	//Scharr( src_filt, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );
+  	Sobel( src_filt, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT );
   	convertScaleAbs( grad_x, abs_grad_x );
 
   	/// Gradient Y
-  	//Scharr( src_gray, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );
-  	Sobel( src_gray, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT );
+  	//Scharr( src_filt, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );
+  	Sobel( src_filt, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT );
   	convertScaleAbs( grad_y, abs_grad_y );
 
   	/// Total Gradient (approximate)
   	addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad );
 
-	imshow( window_name, grad );
+	// Show image
+	imshow( "Sobel Edge Detection", grad );
 }
 
 void CannyEdgeDetection()
 {
-	/// Reduce noise with a kernel 3x3
-  	blur( src_gray, detected_edges, Size(3,3) );
+	// Apply filtering/colourspace changes to src image
+	Mat detected_edges;
+  	blur( src_filt, detected_edges, Size(3,3) );
+	cvtColor( src, src_filt, CV_BGR2GRAY );
 
-  	/// Canny detector
+	// Setup alg parameters
+	int edgeThresh = 1;
+	int lowThreshold;
+	int const max_lowThreshold = 100;
+	int ratio = 3;
+	int kernel_size = 3;
+
+  	// Detect features 
   	Canny( detected_edges, detected_edges, lowThreshold, lowThreshold*ratio, kernel_size );
 
-  	/// Using Canny's output as a mask, we display our result
+  	// Using Canny's output as a mask, we display our result
   	dst = Scalar::all(0);
 
+	// Show image
   	src.copyTo( dst, detected_edges);
-	imshow( window_name, dst );
+	imshow( "Canny Edge Detection", dst );
 }
 
 ////////////////////////
@@ -280,18 +343,26 @@ void CannyEdgeDetection()
 ////////////////////////
 
 /// Example at https://docs.opencv.org/2.4/doc/tutorials/imgproc/imgtrans/hough_circle/hough_circle.html
+// Class Reference: https://docs.opencv.org/3.4/dd/d1a/group__imgproc__feature.html#ga47849c3be0d0406ad3ca45db65a25d2d
 void HoughCircles()
 {
-	/// Convert to HSV colour space
-	cvtColor(src, src_hsv, COLOR_BGR2HSV);
+	// Apply filtering/colourspace changes to src image
+	cvtColor(src, src_filt, COLOR_BGR2HSV);
 
-	/// Create vector to store circles
+	// Setup alg parameters
 	vector<Vec3f> circles;
+	int method = CV_HOUGH_GRADIENT;
+	double dp = 1;
+	double minDist = src_filt.rows/8;
+	double param1 = 200;
+	double param2 = 100;
+	int minRadius = 0;
+	int maxRadius = 0;
 
-	/// Apply the Hough Transform to find the circles
- 	HoughCircles( src_hsv, circles, CV_HOUGH_GRADIENT, 1, src_hsv.rows/8, 200, 100, 0, 0 );
+	// Detect features 
+ 	HoughCircles( src_filt, circles, method, dp, minDist, param1, param2, minRadius, maxRadius);
 
-  	/// Draw the circles detected
+  	// Show image
   	for( size_t i = 0; i < circles.size(); i++ )
   	{
     	Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
