@@ -65,15 +65,15 @@ void MserFindFeatures()
 	vector<vector<Point> > regions;
     vector<Rect> mser_bbox;
 
-	int = delta = 5;
-	int = min_area = 60;
-	int = max_area = 14400;
-	double = max_variation = 0.25;
-	double = min_diversity = .2;
-	int = max_evolution = 200;
-	double = area_threshold = 1.01;
-	double = min_margin = 0.003;
-	int = edge_blur_size = 5;
+	int delta = 5;
+	int min_area = 60;
+	int max_area = 14400;
+	double max_variation = 0.25;
+	double min_diversity = .2;
+	int max_evolution = 200;
+	double area_threshold = 1.01;
+	double min_margin = 0.003;
+	int edge_blur_size = 5;
 
 	// Initialise algorithm with parameters
 	Ptr<MSER> ms = MSER::create(delta, min_area, max_area, max_variation, min_diversity, max_evolution, area_threshold, min_margin, edge_blur_size);
@@ -386,7 +386,7 @@ int main()
   	{ return -1; }
 
   	/// Create a matrix of the same type and size as src (for dst) - for debug
-  	dst.create( src.size(), src.type() );
+  	//dst.create( src.size(), src.type() );
 
   	/// Convert the image to grayscale or HSV
   	//cvtColor( src, src_gray, CV_BGR2GRAY );
@@ -397,8 +397,56 @@ int main()
   	/// Create a Trackbar for user to enter threshold for debug
   	//createTrackbar( "Min Threshold:", window_name, &lowThreshold, max_lowThreshold, CannyThreshold );
 
-  	/// Show the image
-  	CannyThreshold(0, 0);
+	// Get algorithm to use
+	int input = 0;
+	cout << "Select an algorithm for vision processing:\n";
+	cout << "1: MSER \n";
+	cout << "2: BRISK \n";
+	cout << "3: FAST \n";
+	cout << "4: ORB \n";
+	cout << "5: Harris Corner\n";
+	cout << "6: Shi Tomasi Corner\n";
+	cout << "7: Laplacian Edge \n";
+	cout << "8: Sobel Edge \n";
+	cout << "9: Canny Edge \n";
+	cout << "10: Hough Circles \n";
+	cin >> input;
+
+	switch(input)
+	{
+		case 1:
+			MserFindFeatures();
+			break;
+		case 2:
+			BriskFindFeatures();
+			break;
+		case 3:
+			FastFindFeatures();
+			break;
+		case 4:
+			OrbFindFeatures();
+			break;
+		case 5:
+			HarrisCornerDetection();
+			break;
+		case 6:
+			ShiTomasiCornerDetection();
+			break;
+		case 7:
+			LaplacianEdgeDetection();
+			break;
+		case 8:
+			SobelEdgeDetection();
+			break;
+		case 9:
+			CannyEdgeDetection();
+			break;
+		case 10:
+			HoughCircles();
+			break;
+		default:
+			break;
+	}
 
   	/// Wait until user exit program by pressing a key
   	waitKey(0);
