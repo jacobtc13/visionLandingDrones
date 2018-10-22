@@ -8,21 +8,9 @@ import picamera
 import picamera.array
 import time
 
-algnum = 0
-numberoftests = 1
+numberoftests = 100
 debugmode = False
-filterimage = True
-
-algorithms = { 0 : KazeFindFeatures,
-               1 : BriskFindFeatures,
-               2 : OrbFindFeatures,
-               3 : FastFindFeatures,
-               4 : HoughCircles,
-               5 : LaplacianEdgeDetection,
-               6 : SobelXEdgeDetection,
-               7 : SobelYEdgeDetection,
-               8 : CannyEdgeDetection
-}
+filterimage = False
 
 class CameraCapture:
     def __init__(self):
@@ -59,9 +47,9 @@ def KazeFindFeatures(img, fimg):
     #akaze = cv2.AKAZE_create(descriptor_type=cv2.DESCRIPTOR_MLDB)
     #akaze = Akaze_create(descriptor_type=cv2.DESCRIPTOR_KAZE)
     kp, des = kaze.detectAndCompute(fimg, None)
-    print('Akaze Processing Time: %ss' % (time.time()-time1))
-    img = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
-    cv2.imwrite('kazeShapes.png',img)
+    #print('Akaze Processing Time: %ss' % (time.time()-time1))
+    #img = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
+    #cv2.imwrite('kazeShapes.png',img)
 
 
 def BriskFindFeatures(img, fimg):
@@ -69,8 +57,8 @@ def BriskFindFeatures(img, fimg):
     #setup BRISK alg
     brisk = cv2.BRISK_create()
     kp, des = brisk.detectAndCompute(fimg, None)
-    print('Brisk Processing Time: %ss' % (time.time()-time1))
-    img = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
+    #print('Brisk Processing Time: %ss' % (time.time()-time1))
+    #img = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
     #cv2.imwrite('briskShapes.png',img)
 
 
@@ -80,8 +68,8 @@ def OrbFindFeatures(img, fimg):
     orb = cv2.ORB_create(nfeatures=1000, scoreType=cv2.ORB_FAST_SCORE)
     kp = orb.detect(fimg, None)
     kp, des = orb.compute(img, kp)
-    print('Orb Processing Time: %ss' % (time.time()-time1))
-    img = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
+    #print('Orb Processing Time: %ss' % (time.time()-time1))
+    #img = cv2.drawKeypoints(img, kp, None, color=(0,255,0),flags=0)
     #cv2.imwrite('orbShapes.png',img)
 
 
@@ -92,8 +80,8 @@ def FastFindFeatures(img, fimg):
     # disable nonmaxSuppression
     # fast.setNonmaxSuppression(0)
     kp = fast.detect(fimg,None)
-    print('Fast Processing Time: %ss' % (time.time()-time1))
-    img = cv2.drawKeypoints(img, kp, None, color=(255,0,0))
+    #print('Fast Processing Time: %ss' % (time.time()-time1))
+    #img = cv2.drawKeypoints(img, kp, None, color=(255,0,0))
     #cv2.imwrite('fastShapes.png',img)
 
 def HoughCircles(img, fimg):
@@ -103,38 +91,38 @@ def HoughCircles(img, fimg):
     # circles = np.uint16(np.around(circles))
 
     #Draw Circles
-    if circles is not None:
-        for i in circles[0,:]:
+    #if circles is not None:
+    #    for i in circles[0,:]:
             # If the ball is far, draw it in green
-            if int(round(i[2])) < 30:
-                cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,255,0),5)
-                cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,255,0),10)
+     #       if int(round(i[2])) < 30:
+      #          cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,255,0),5)
+       #         cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,255,0),10)
             # else draw it in red
-            elif int(round(i[2])) > 35:
-                cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,0,255),5)
-                cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,0,255),10)
+        #    elif int(round(i[2])) > 35:
+         #       cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,0,255),5)
+          #      cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,0,255),10)
     #cv2.imwrite('houghCircles.png',img)
 
 def LaplacianEdgeDetection(img, fimg):
     laplacian = cv2.Laplacian(fimg,cv2.CV_64F)
 
     #draw filtered image
-    plt.subplot(2,2,2),plt.imshow(laplacian,cmap = 'gray')
-    plt.title('Laplacian'), plt.xticks([]), plt.yticks([])
+    #plt.subplot(2,2,2),plt.imshow(laplacian,cmap = 'gray')
+    #plt.title('Laplacian'), plt.xticks([]), plt.yticks([])
 
 def SobelXEdgeDetection(img, fimg):
     sobelx = cv2.Sobel(img,cv2.CV_64F,1,0,ksize=5)
 
     #draw filtered image
-    plt.title('Sobel X'), plt.xticks([]), plt.yticks([])
-    plt.subplot(2,2,4),plt.imshow(sobely,cmap = 'gray')
+    #plt.title('Sobel X'), plt.xticks([]), plt.yticks([])
+    #plt.subplot(2,2,4),plt.imshow(sobely,cmap = 'gray')
 
 def SobelYEdgeDetection(img, fimg):
     sobely = cv2.Sobel(img,cv2.CV_64F,1,0,ksize=5)
 
     #draw filtered image
-    plt.subplot(2,2,4),plt.imshow(sobely,cmap = 'gray')
-    plt.title('Sobel Y'), plt.xticks([]), plt.yticks([])
+    #plt.subplot(2,2,4),plt.imshow(sobely,cmap = 'gray')
+    #plt.title('Sobel Y'), plt.xticks([]), plt.yticks([])
 
 
 def CannyEdgeDetection(img, fimg):
@@ -142,18 +130,30 @@ def CannyEdgeDetection(img, fimg):
     #dst.create( src.size(), src.type() )
 
     # Create a window
-    cv2.namedWindow( 'Edge map' )
+    #cv2.namedWindow( 'Edge map' )
 
     # Create a Trackbar for user to enter threshold
-    cv2.createTrackbar( 'thresh', 'Edge map', 1, 100, nothing)
+    #cv2.createTrackbar( 'thresh', 'Edge map', 1, 100, nothing)
 
-    cv2.blur(fimg, detected_edges, Size(3,3))
+    #cv2.blur(fimg, detected_edges, Size(3,3))
 
-    thres = cv2.getTrackbarPos('thresh','Edge map')
-    
-    cv2.Canny(detected_edges, detected_edges, thres, thres*3, 3)
+    #thres = 100#cv2.getTrackbarPos('thresh','Edge map')
+    #edges = cv2.Canny(fimg,100,200)
+    cam = CameraCapture()
+    while(1):
+        img = cam.capture()
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    #show image here
+        lower_red = np.array([0,0,0])
+        upper_red = np.array([255,255,180])
+        
+        mask = cv2.inRange(hsv, lower_red, upper_red)
+        res = cv2.bitwise_and(img,img, mask= mask)
+
+        cv2.imshow('Original',img)
+        edges = cv2.Canny(img,100,200)
+        cv2.imshow('Edges',edges)
+
 
 def Grayscale(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -180,7 +180,7 @@ def FilterImage(img):
     return tracking
 
 
-def DebugFilters(cam):
+def DebugFilters():
     kernel = np.ones((5,5),np.uint8)
     cam = CameraCapture()
     #print('pass')
@@ -235,18 +235,106 @@ def DebugFilters(cam):
         cv2.imshow('closing',closing)
         cv2.imshow('tracking',img)
 
+def ImageTest():
+    def nothing(x):
+        pass
+    cam = CameraCapture()
+    img = cam.capture()
+    kernel = np.ones((5,5),np.uint8)
+    
+    cv2.namedWindow('HueComp')
+    cv2.namedWindow('SatComp')
+    cv2.namedWindow('ValComp')
+    cv2.namedWindow('closing')
+    cv2.namedWindow('tracking')
+
+    cv2.createTrackbar('hmin', 'HueComp',12,179, nothing)
+    cv2.createTrackbar('hmax', 'HueComp',37,179, nothing)
+    cv2.createTrackbar('smin', 'SatComp',96,255, nothing)
+    cv2.createTrackbar('smax', 'SatComp',255,255, nothing)
+
+    cv2.createTrackbar('vmin', 'ValComp',186,255, nothing)
+    cv2.createTrackbar('vmax', 'ValComp',255,255, nothing)
+
+    while(1):
+        img = cam.capture()
+        
+        #converting to HSV
+        hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+        hue,sat,val = cv2.split(hsv)
+
+        
+
+        # get info from track bar and appy to result
+        hmn = cv2.getTrackbarPos('hmin','HueComp')
+        hmx = cv2.getTrackbarPos('hmax','HueComp')
+        smn = cv2.getTrackbarPos('smin','SatComp')
+        smx = cv2.getTrackbarPos('smax','SatComp')
+        vmn = cv2.getTrackbarPos('vmin','ValComp')
+        vmx = cv2.getTrackbarPos('vmax','ValComp')
+
+	# Apply thresholding
+        hthresh = cv2.inRange(np.array(hue),np.array(hmn),np.array(hmx))
+        sthresh = cv2.inRange(np.array(sat),np.array(smn),np.array(smx))
+        vthresh = cv2.inRange(np.array(val),np.array(vmn),np.array(vmx))
+
+	# AND h s and v
+        tracking = cv2.bitwise_and(hthresh,cv2.bitwise_and(sthresh,vthresh))
+
+	# Some morpholigical filtering
+        dilation = cv2.dilate(tracking,kernel,iterations = 1)
+        closing = cv2.morphologyEx(dilation, cv2.MORPH_CLOSE, kernel)
+        closing = cv2.GaussianBlur(closing,(5,5),0)
+
+	# Detect circles using HoughCircles
+        circles = cv2.HoughCircles(closing,cv2.HOUGH_GRADIENT,2,120,param1=120,param2=50,minRadius=10,maxRadius=0)
+	# circles = np.uint16(np.around(circles))
+
+
+	#Draw Circles
+        if circles is not None:
+            for i in circles[0,:]:
+                # If the ball is far, draw it in green
+                if int(round(i[2])) < 30:
+                    cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,255,0),5)
+                    cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,255,0),10)
+                # else draw it in red
+                elif int(round(i[2])) > 35:
+                    cv2.circle(img,(int(round(i[0])),int(round(i[1]))),int(round(i[2])),(0,0,255),5)
+                    cv2.circle(img,(int(round(i[0])),int(round(i[1]))),2,(0,0,255),10)
+                    buzz = 1
+
+    #you can use the 'buzz' variable as a trigger to switch some GPIO lines on Rpi :)
+    # print buzz
+    # if buzz:
+        # put your GPIO line here
+
+
+    #Show the result in frames
+        cv2.imshow('SatComp',sthresh)
+        cv2.imshow('HueComp',hthresh)
+        cv2.imshow('ValComp',vthresh)
+        cv2.imshow('closing',closing)
+        cv2.imshow('tracking',img)
+
+        k = cv2.waitKey(5) & 0xFF
+        if k == 27:
+            break
+
+        #cv2.destroyAllWindows()
+
 def main():
     # create camera instance
-    cam = CameraCapture()
+    #cam = CameraCapture()
 
     if(debugmode):
         # For testing HSV ranges
-        DebugFilters(cam)
+        ImageTest()
     else:
         totaltime = 0.0
         testsremaining = numberoftests
         while(testsremaining != 0):   
-            img = cam.capture()
+            img = None#cam.capture()
             fimg = None
 
             timestart = time.time()
@@ -258,10 +346,10 @@ def main():
                 #dilation = cv2.dilate(fimg,kernel,iterations = 1)
                 #closing = cv2.morphologyEx(dilation, cv2.MORPH_CLOSE, kernel)
                 #closing = cv2.GaussianBlur(closing,(5,5),0)
-                algorithms[algnum](img, fimg)
+                CannyEdgeDetection(img, fimg)
             else:
-                fimg = Grayscale(img)
-                algorithms[algnum](img, fimg)
+                #fimg = Grayscale(img)
+                CannyEdgeDetection(img, fimg)
                 
             totaltime += (time.time() - timestart)
             testsremaining -= 1
@@ -269,7 +357,7 @@ def main():
         print('Average time taken per frame: %ss' % (totaltime/numberoftests))
 
     # cleanup after running tests
-    cv2.destroyAllWindows()
+    #cv2.destroyAllWindows()
     
     
 
