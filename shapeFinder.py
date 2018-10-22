@@ -10,8 +10,8 @@ import time
 
 algnum = 0
 numberoftests = 1
-debugmode = false
-filterimage = true
+debugmode = False
+filterimage = True
 
 algorithms = { 0 : KazeFindFeatures,
                1 : BriskFindFeatures,
@@ -32,7 +32,7 @@ class CameraCapture:
         #camera.color_effects = (128,128) #grayscale - needs to be tested to see if it improves anything
         self.camera.framerate = 32
         
-        # camera warmupq
+        # camera warmup
         time.sleep(0.1)
 
 
@@ -55,7 +55,7 @@ class CameraCapture:
 def KazeFindFeatures(img, fimg):
     #print('Starting kaze Detection')
     # setup AKAZE alg
-    kaze = cv2.KAZE_create()
+    kaze = cv2.KAZE_create(False, False, 0.001)
     #akaze = cv2.AKAZE_create(descriptor_type=cv2.DESCRIPTOR_MLDB)
     #akaze = Akaze_create(descriptor_type=cv2.DESCRIPTOR_KAZE)
     kp, des = kaze.detectAndCompute(fimg, None)
@@ -130,14 +130,14 @@ def SobelXEdgeDetection(img, fimg):
     plt.subplot(2,2,4),plt.imshow(sobely,cmap = 'gray')
 
 def SobelYEdgeDetection(img, fimg):
-    sobelx = cv2.Sobel(img,cv2.CV_64F,1,0,ksize=5)
+    sobely = cv2.Sobel(img,cv2.CV_64F,1,0,ksize=5)
 
     #draw filtered image
     plt.subplot(2,2,4),plt.imshow(sobely,cmap = 'gray')
     plt.title('Sobel Y'), plt.xticks([]), plt.yticks([])
 
 
-def CannyEdgeDetection(img, fimg)
+def CannyEdgeDetection(img, fimg):
     # Create a matrix of the same type and size as src (for dst)
     #dst.create( src.size(), src.type() )
 
@@ -177,11 +177,7 @@ def FilterImage(img):
     # AND h s and v
     tracking = cv2.bitwise_and(hthresh,cv2.bitwise_and(sthresh,vthresh))
 
-    # Some morpholigical filtering
-    dilation = cv2.dilate(tracking,kernel,iterations = 1)
-    closing = cv2.morphologyEx(dilation, cv2.MORPH_CLOSE, kernel)
-    closing = cv2.GaussianBlur(closing,(5,5),0)
-    return closing
+    return tracking
 
 
 def DebugFilters(cam):
@@ -258,9 +254,14 @@ def main():
             # image for drawing on and display
             if(filterimage):
                 fimg = FilterImage(img)
+                # Some morpholigical filtering
+                #dilation = cv2.dilate(fimg,kernel,iterations = 1)
+                #closing = cv2.morphologyEx(dilation, cv2.MORPH_CLOSE, kernel)
+                #closing = cv2.GaussianBlur(closing,(5,5),0)
                 algorithms[algnum](img, fimg)
             else:
-                algorithms[algnum](img, img)
+                fimg = Grayscale(img)
+                algorithms[algnum](img, fimg)
                 
             totaltime += (time.time() - timestart)
             testsremaining -= 1
